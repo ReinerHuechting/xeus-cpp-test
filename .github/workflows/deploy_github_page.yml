@@ -1,0 +1,100 @@
+name: Build and Deploy
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+    - main
+  schedule:
+    - cron: '30 20 * * *' # Warning: Timezone dep - 20:00 is 1:00
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Github-page
+            os: ubuntu-24.04
+
+    steps:
+      - name: clone xeus-cpp repo
+        run: |
+          git clone --depth=1 https://github.com/compiler-research/xeus-cpp.git
+
+      - name: install mamba
+        uses: mamba-org/setup-micromamba@main
+        with:
+          environment-file: xeus-cpp/environment-wasm-build.yml
+          init-shell: bash
+          environment-name: xeus-cpp-wasm-build
+
+      - name: Setup default Build Type on *nux
+        if: ${{ runner.os != 'windows' }}
+        run: |
+          echo "ncpus=$(nproc --all)" >> $GITHUB_ENV
+
+      - name: Build xeus-cpp
+        shell: bash -l {0}
+        run: |
+          micromamba create -f environment-wasm-host.yml --platform=emscripten-wasm32
+
+          pushd xeus-cpp
+          mkdir build
+          pushd build
+
+          export BUILD_PREFIX=$MAMBA_ROOT_PREFIX/envs/xeus-cpp-wasm-build
+          export PREFIX=$MAMBA_ROOT_PREFIX/envs/xeus-cpp-wasm-host 
+          echo "PREFIX=$PREFIX" >> $GITHUB_ENV
+          export SYSROOT_PATH=$BUILD_PREFIX/opt/emsdk/upstream/emscripten/cache/sysroot
+
+          emcmake cmake \
+            -DCMAKE_BUILD_TYPE=Release                        \
+            -DCMAKE_INSTALL_PREFIX=$PREFIX                    \
+            -DXEUS_CPP_EMSCRIPTEN_WASM_BUILD=ON               \
+            -DCMAKE_FIND_ROOT_PATH=$PREFIX                    \
+            -DSYSROOT_PATH=$SYSROOT_PATH                      \
+            ..
+          emmake make -j ${{ env.ncpus }} install
+
+      - name: Jupyter Lite integration
+        shell: bash -l {0}
+        run: |
+          micromamba create -n xeus-lite-host jupyterlite-core jupyter_server
+          micromamba activate xeus-lite-host
+          python -m pip install jupyterlite-xeus
+          jupyter lite build \
+              --XeusAddon.prefix=${{ env.PREFIX }} \
+              --contents README.md \
+              --contents hello.ipynb \
+              --output-dir dist
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
