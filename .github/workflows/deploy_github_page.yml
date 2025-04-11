@@ -45,9 +45,9 @@ jobs:
       - name: Build xeus-cpp
         shell: bash -l {0}
         run: |
+          pushd xeus-cpp
           micromamba create -f environment-wasm-host.yml --platform=emscripten-wasm32
 
-          pushd xeus-cpp
           mkdir build
           pushd build
 
