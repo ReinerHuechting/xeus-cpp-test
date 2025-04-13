@@ -30,7 +30,7 @@ namespace message {
 template <typename T, typename U>
 std::string neq(std::vector<T> left, std::vector<U> right) {
   std::ostringstream oss;
-  oss << "Vectors are not equal: " << std::endl;
+  oss << "[FAILURE]" << std::endl;
   oss << "  Left:  " << format(left) << std::endl;
   oss << "  Right: " << format(right) << std::endl;
   return oss.str();
@@ -39,8 +39,7 @@ std::string neq(std::vector<T> left, std::vector<U> right) {
 template <typename T, typename U>
 std::string neq(T left, U right) {
   std::ostringstream oss;
-  oss << "Values are not equal: " << std::endl;
-  oss << "  " << left << " != " << right << std::endl;
+  oss << "[FAILURE] " << "  " << left << " != " << right << std::endl;
   return oss.str();
 }
 
@@ -55,7 +54,8 @@ std::string ok() {
 namespace assert {
 
 template <typename L, typename R>
-bool eq(std::vector<L> left, std::vector<R> right) {
+bool eq(std::string test_case, std::vector<L> left, std::vector<R> right) {
+  std::cout << "TEST CASE: " << test_case << ": ";
   if (left.size() != right.size()) {
     std::cout << message::neq(left, right);
     return false;
@@ -71,7 +71,8 @@ bool eq(std::vector<L> left, std::vector<R> right) {
 }
 
 template <typename L, typename R>
-bool eq(L left, R right) {
+bool eq(std::string test_case, L left, R right) {
+  std::cout << "TEST CASE: " << test_case << ": ";
   if (left != right) {
     std::cout << message::neq(left, right);
     return false;
@@ -83,5 +84,12 @@ bool eq(L left, R right) {
 }  // namespace assert
 
 }  // namespace test_utils
+
+#define ASSERT_EQ(left, right)                      \
+  {                                                 \
+    std::ostringstream oss;                         \
+    oss << #left << " == " << #right;               \
+    test_utils::assert::eq(oss.str(), left, right); \
+  }
 
 #endif
