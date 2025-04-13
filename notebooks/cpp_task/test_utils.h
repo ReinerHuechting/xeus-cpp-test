@@ -8,7 +8,6 @@
 
 namespace test_utils {
 namespace {
-
 template <typename T>
 std::string format(std::vector<T> vec) {
   std::ostringstream oss;
@@ -23,65 +22,52 @@ std::string format(std::vector<T> vec) {
   return oss.str();
 }
 
+template <typename T>
+std::string format(T value) {
+  std::ostringstream oss;
+  oss << value;
+  return oss.str();
+}
 }  // namespace
 
 namespace message {
 
-template <typename T, typename U>
-std::string neq(std::vector<T> left, std::vector<U> right) {
-  std::ostringstream oss;
-  oss << "[FAILURE]" << std::endl;
-  oss << "  Left:  " << format(left) << std::endl;
-  oss << "  Right: " << format(right) << std::endl;
-  return oss.str();
-}
+std::string failed() { return "[FAILED] "; }
+std::string ok() { return "[OK]     "; }
 
 template <typename T, typename U>
 std::string neq(T left, U right) {
   std::ostringstream oss;
-  oss << "[FAILURE] " << "  " << left << " != " << right << std::endl;
-  return oss.str();
-}
-
-std::string ok() {
-  std::ostringstream oss;
-  oss << "OK" << std::endl;
+  oss << " (" << format(left) << " != " << format(right) << ")";
   return oss.str();
 }
 
 }  // namespace message
 
-namespace assert {
+namespace check {
 
 template <typename L, typename R>
-bool eq(std::string test_case, std::vector<L> left, std::vector<R> right) {
-  std::cout << "TEST CASE: " << test_case << ": ";
+bool eq(std::vector<L> left, std::vector<R> right) {
   if (left.size() != right.size()) {
-    std::cout << message::neq(left, right);
     return false;
   }
   for (int i = 0; i < left.size(); i++) {
     if (left[i] != right[i]) {
-      std::cout << message::neq(left, right);
       return false;
     }
   }
-  std::cout << message::ok();
   return true;
 }
 
 template <typename L, typename R>
-bool eq(std::string test_case, L left, R right) {
-  std::cout << "TEST CASE: " << test_case << ": ";
+bool eq(L left, R right) {
   if (left != right) {
-    std::cout << message::neq(left, right);
     return false;
   }
-  std::cout << message::ok();
   return true;
 }
 
-}  // namespace assert
+}  // namespace check
 
 }  // namespace test_utils
 
@@ -90,6 +76,33 @@ bool eq(std::string test_case, L left, R right) {
     std::ostringstream oss;                         \
     oss << #left << " == " << #right;               \
     test_utils::assert::eq(oss.str(), left, right); \
+  }
+
+#define ASSERT(e)               \
+  {                             \
+    if (!(e)) {                 \
+      std::cout << "[FAILED] "; \
+      std::cout << #e;          \
+      std::cout << std::endl;   \
+    } else {                    \
+      std::cout << "[OK]     "; \
+      std::cout << #e;          \
+      std::cout << std::endl;   \
+    }                           \
+  }
+
+#define ASSERT_EQUAL(left, right)                         \
+  {                                                       \
+    if (!test_utils::check::eq(left, right)) {            \
+      std::cout << test_utils::message::failed();         \
+      std::cout << #left << " == " << #right;             \
+      std::cout << test_utils::message::neq(left, right); \
+      std::cout << std::endl;                             \
+    } else {                                              \
+      std::cout << test_utils::message::ok();             \
+      std::cout << #left << " == " << #right;             \
+      std::cout << std::endl;                             \
+    }                                                     \
   }
 
 #endif
